@@ -1,9 +1,10 @@
-#coding=utf-8
+# -*- coding: utf-8 -*-
 # from appium import webdriver
-# import time
+import time
 # import unittest
 # import os
 import subprocess
+import threading
 
 # desired_caps = {}
 # desired_caps['platformName'] = 'Android'
@@ -44,29 +45,51 @@ import subprocess
 #     	print("手机断开连接")
 #     	break
 
-
+# 调用子进程devices = []
 devices = subprocess.Popen(  
     'adb devices'.split(),  
     stdout=subprocess.PIPE,  
     stderr=subprocess.PIPE  
 ).communicate()[0]  
 
+#获取设备号
 serial_nos = []  
 for item in devices.split():  
     itemStr = item.decode(encoding="utf-8")
     filters = ['list','of','device','devices','attached']  
     if itemStr.lower() not in filters: 
-        print(itemStr) 
         serial_nos.append(itemStr)  
+
 reboot_cmds = []
 for serial_no in serial_nos: 
-    reboot_cmds.append('adb -s %s reboot' % serial_no)  
-for reboot_cmd in reboot_cmds:  
-    subprocess.Popen(  
-        reboot_cmd.split(),  
-        stdout=subprocess.PIPE,  
-        stderr=subprocess.PIPE  
-    ).communicate()[0]  
+    reboot_cmds.append('adb -s %s reboot' % serial_no) 
 
+#执行多次adb reboot命令，实现多次重启测试
+def rebootLoop():
+    for i in range(1,5):
+        p = subprocess.Popen(  
+        	reboot_cmd.split(),	
+            stdout=subprocess.PIPE,  
+            stderr=subprocess.PIPE, shell=True
+        )
 
+        #如果在执行重启命令时报错，则终止重启循环，比打印报错信息（手机断开与电脑的连接）
+        stdout,stderr = p.communicate()
+        stderrStr = stderr.decode(encoding="utf-8")
+        print('the %d times reboot by thread %s' % (i, threading.current_thread().name)) 
+        if stderrStr is not None and len(stderrStr) != 0 :
+            print('stop reboot becasuse there is an error : ',stderrStr)
+            return       
+        time.sleep(60) 
 
+#创建多个线程，实现多台手机同时测试
+# i = 0
+for reboot_cmd in reboot_cmds:
+    print(reboot_cmd)
+    # str1 = str(i) 
+    # t = threading.Thread(target=rebootLoop, name='rebootLoopThread'+str1)
+    t = threading.Thread(target=rebootLoop, name='rebootLoopThread')
+    # i = i+1
+    t.start()
+  
+# print('thread %s ended.' % threading.current_thread().name)
